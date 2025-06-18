@@ -7,7 +7,9 @@ authors = [
     { name = "Tom Bedor", email = "tombedor@gmail.com" }
 ]
 requires-python = ">=3.10"
-dependencies = []
+dependencies = [
+    "berserk>=0.13.2",
+]
 
 [project.scripts]
 checkmate = "checkmate:main"
