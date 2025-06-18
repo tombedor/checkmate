@@ -1,0 +1,8 @@
+To complete the extension, you need to add an icon.png file to this directory.
+
+You can:
+1. Create a simple 128x128 pixel PNG image
+2. Download a free chess-related icon and rename it to icon.png
+3. Use a placeholder icon from a site like https://icons8.com/
+
+The icon should be placed in this directory with the filename "icon.png".
