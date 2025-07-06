@@ -12,11 +12,24 @@
       font-size: 16px;
       color: #333;
     }
+    .settings-link {
+      display: block;
+      margin-top: 15px;
+      color: #0078d7;
+      text-decoration: none;
+      font-size: 14px;
+    }
+    .settings-link:hover {
+      text-decoration: underline;
+    }
   </style>
 </head>
 <body>
   <h1>Checkmate</h1>
   <p>This extension adds a hello world message to lichess.org</p>
+
+  <a href="#" id="optionsLink" class="settings-link">⚙️ Settings</a>
+
   <script src="popup.js"></script>
 </body>
 </html>

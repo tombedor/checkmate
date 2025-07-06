@@ -11,11 +11,12 @@
     "default_popup": "popup.html",
     "default_icon": "icon.png"
   },
+  "options_page": "options.html",
   "content_scripts": [
     {
       "matches": ["*://*.lichess.org/*"],
       "js": ["content.js"]
     }
   ],
-  "permissions": ["activeTab"]
+  "permissions": ["activeTab", "storage"]
 }

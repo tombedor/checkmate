@@ -2,9 +2,9 @@
 console.log('Hello from the Checkmate extension!');
 
 // Create a floating message
-function createHelloMessage() {
+function createHelloMessage(message) {
   const messageDiv = document.createElement('div');
-  messageDiv.textContent = 'Hello, Lichess!';
+  messageDiv.textContent = message;
   messageDiv.style.position = 'fixed';
   messageDiv.style.top = '10px';
   messageDiv.style.right = '10px';
@@ -23,7 +23,20 @@ function createHelloMessage() {
   }, 5000);
 }
 
+// Check if API key is set
+function checkApiKey() {
+  chrome.storage.sync.get(['apiKey'], function(result) {
+    if (result.apiKey) {
+      createHelloMessage('Hello, Lichess! API Key is set.');
+      console.log('API Key is set and ready to use with OpenAI.');
+      // Here you could use the API key to make requests to OpenAI
+    } else {
+      createHelloMessage('Hello, Lichess! Please set your OpenAI API Key in the extension settings.');
+    }
+  });
+}
+
 // Wait for the page to fully load
 window.addEventListener('load', function() {
-  createHelloMessage();
+  checkApiKey();
 });
