@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Checkmate",
   "version": "1.0",
-  "description": "A simple Hello World extension for lichess.org",
+  "description": "AI chess tutor that provides real-time game analysis and educational insights for lichess.org",
   "icons": {
     "48": "icon.png",
     "128": "icon.png"
@@ -18,5 +18,6 @@
       "js": ["content.js"]
     }
   ],
-  "permissions": ["activeTab", "storage"]
+  "permissions": ["activeTab", "storage"],
+  "host_permissions": ["https://api.openai.com/*"]
 }

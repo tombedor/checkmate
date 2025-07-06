@@ -1,42 +1,701 @@
 // This script runs on lichess.org pages
-console.log('Hello from the Checkmate extension!');
+console.log('Checkmate Chess Tutor loaded!');
 
-// Create a floating message
-function createHelloMessage(message) {
-  const messageDiv = document.createElement('div');
-  messageDiv.textContent = message;
-  messageDiv.style.position = 'fixed';
-  messageDiv.style.top = '10px';
-  messageDiv.style.right = '10px';
-  messageDiv.style.backgroundColor = 'white';
-  messageDiv.style.color = 'black';
-  messageDiv.style.padding = '10px';
-  messageDiv.style.borderRadius = '5px';
-  messageDiv.style.boxShadow = '0 2px 5px rgba(0,0,0,0.2)';
-  messageDiv.style.zIndex = '9999';
+class ChessAnalyzer {
+  constructor() {
+    this.apiKey = null;
+    this.gameData = null;
+    this.chatWindow = null;
+    this.isMinimized = false;
+    this.isMaximized = false;
+    this.originalSize = { width: '350px', height: '500px' };
+    this.conversationHistory = [];
+    this.init();
+  }
 
-  document.body.appendChild(messageDiv);
+  async init() {
+    // Get API key from storage
+    chrome.storage.sync.get(['apiKey'], (result) => {
+      this.apiKey = result.apiKey;
+      if (this.apiKey) {
+        this.createChatWindow();
+        // Initialize basic game data structure
+        this.gameData = {
+          gameUrl: window.location.href,
+          timestamp: new Date().toISOString()
+        };
+      } else {
+        this.showSetupMessage();
+      }
+    });
+  }
 
-  // Remove the message after 5 seconds
-  setTimeout(() => {
-    messageDiv.remove();
-  }, 5000);
-}
+  showSetupMessage() {
+    const messageDiv = document.createElement('div');
+    messageDiv.textContent = 'Please set your OpenAI API Key in Checkmate settings to use the chess tutor.';
+    messageDiv.style.cssText = `
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      background: #ff6b6b;
+      color: white;
+      padding: 10px;
+      border-radius: 5px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+      z-index: 10000;
+      font-family: Arial, sans-serif;
+      font-size: 14px;
+      cursor: pointer;
+    `;
 
-// Check if API key is set
-function checkApiKey() {
-  chrome.storage.sync.get(['apiKey'], function(result) {
-    if (result.apiKey) {
-      createHelloMessage('Hello, Lichess! API Key is set.');
-      console.log('API Key is set and ready to use with OpenAI.');
-      // Here you could use the API key to make requests to OpenAI
+    document.body.appendChild(messageDiv);
+
+    setTimeout(() => {
+      messageDiv.remove();
+    }, 10000);
+  }
+
+  createChatWindow() {
+    // Create main chat container
+    this.chatWindow = document.createElement('div');
+    this.chatWindow.id = 'checkmate-chat';
+    this.chatWindow.style.cssText = `
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      width: ${this.originalSize.width};
+      height: ${this.originalSize.height};
+      background: white;
+      border: 2px solid #4CAF50;
+      border-radius: 10px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+      z-index: 10000;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      display: flex;
+      flex-direction: column;
+      resize: both;
+      overflow: hidden;
+      transition: all 0.3s ease;
+    `;
+
+    // Create header
+    const header = document.createElement('div');
+    header.style.cssText = `
+      background: #4CAF50;
+      color: white;
+      padding: 10px;
+      font-weight: bold;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: move;
+    `;
+    header.innerHTML = `
+      <span>♟️ Chess Tutor</span>
+      <div>
+        <button id="clear-btn" style="background: none; border: none; color: white; font-size: 14px; cursor: pointer; margin-right: 5px; padding: 2px 6px; border-radius: 3px;" title="Clear conversation">🗑️</button>
+        <button id="maximize-btn" style="background: none; border: none; color: white; font-size: 16px; cursor: pointer; margin-right: 5px; padding: 2px 6px; border-radius: 3px;" title="Maximize">□</button>
+        <button id="minimize-btn" style="background: none; border: none; color: white; font-size: 16px; cursor: pointer; margin-right: 5px; padding: 2px 6px; border-radius: 3px;" title="Minimize">−</button>
+        <button id="close-btn" style="background: none; border: none; color: white; font-size: 16px; cursor: pointer; padding: 2px 6px; border-radius: 3px;" title="Close">×</button>
+      </div>
+    `;
+
+    // Create messages container
+    const messagesContainer = document.createElement('div');
+    messagesContainer.id = 'messages-container';
+    messagesContainer.style.cssText = `
+      flex: 1;
+      overflow-y: auto;
+      padding: 15px;
+      background: #fafafa;
+      line-height: 1.5;
+      font-size: 14px;
+    `;
+
+    // Create input area
+    const inputArea = document.createElement('div');
+    inputArea.style.cssText = `
+      display: flex;
+      padding: 10px;
+      background: white;
+      border-top: 1px solid #ddd;
+    `;
+
+    const messageInput = document.createElement('input');
+    messageInput.type = 'text';
+    messageInput.placeholder = 'Ask about this chess game...';
+    messageInput.style.cssText = `
+      flex: 1;
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      margin-right: 10px;
+    `;
+
+    const sendButton = document.createElement('button');
+    sendButton.textContent = 'Send';
+    sendButton.style.cssText = `
+      background: #4CAF50;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+    `;
+
+    // Add event listeners
+    header.addEventListener('mousedown', this.startDrag.bind(this));
+    document.getElementById = (id) => {
+      if (id === 'minimize-btn') return header.querySelector('#minimize-btn');
+      if (id === 'close-btn') return header.querySelector('#close-btn');
+      return document.querySelector('#' + id);
+    };
+
+    // Assemble the window
+    inputArea.appendChild(messageInput);
+    inputArea.appendChild(sendButton);
+    this.chatWindow.appendChild(header);
+    this.chatWindow.appendChild(messagesContainer);
+    this.chatWindow.appendChild(inputArea);
+    document.body.appendChild(this.chatWindow);
+
+    // Add event listeners after DOM is ready
+    setTimeout(() => {
+      const clearBtn = this.chatWindow.querySelector('#clear-btn');
+      const maximizeBtn = this.chatWindow.querySelector('#maximize-btn');
+      const minimizeBtn = this.chatWindow.querySelector('#minimize-btn');
+      const closeBtn = this.chatWindow.querySelector('#close-btn');
+
+      clearBtn.addEventListener('click', this.clearConversation.bind(this));
+      maximizeBtn.addEventListener('click', this.toggleMaximize.bind(this));
+      minimizeBtn.addEventListener('click', this.toggleMinimize.bind(this));
+      closeBtn.addEventListener('click', this.closeChatWindow.bind(this));
+      sendButton.addEventListener('click', () => this.sendMessage(messageInput.value));
+      messageInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+          this.sendMessage(messageInput.value);
+        }
+      });
+
+      // Add hover effects for buttons
+      [clearBtn, maximizeBtn, minimizeBtn, closeBtn].forEach(btn => {
+        btn.addEventListener('mouseenter', () => {
+          btn.style.backgroundColor = 'rgba(255,255,255,0.2)';
+        });
+        btn.addEventListener('mouseleave', () => {
+          btn.style.backgroundColor = 'transparent';
+        });
+      });
+    }, 0);
+
+    // Add initial welcome message
+    this.addMessage('system', 'Welcome! I\'m your chess tutor. I can help analyze this game and answer questions about chess strategy and tactics.');
+  }
+
+  startDrag(e) {
+    const rect = this.chatWindow.getBoundingClientRect();
+    const offsetX = e.clientX - rect.left;
+    const offsetY = e.clientY - rect.top;
+
+    const drag = (e) => {
+      this.chatWindow.style.left = (e.clientX - offsetX) + 'px';
+      this.chatWindow.style.top = (e.clientY - offsetY) + 'px';
+      this.chatWindow.style.right = 'auto';
+      this.chatWindow.style.bottom = 'auto';
+    };
+
+    const stopDrag = () => {
+      document.removeEventListener('mousemove', drag);
+      document.removeEventListener('mouseup', stopDrag);
+    };
+
+    document.addEventListener('mousemove', drag);
+    document.addEventListener('mouseup', stopDrag);
+  }
+
+  toggleMaximize() {
+    const maximizeBtn = this.chatWindow.querySelector('#maximize-btn');
+    
+    if (this.isMaximized) {
+      // Restore to original size
+      this.chatWindow.style.width = this.originalSize.width;
+      this.chatWindow.style.height = this.originalSize.height;
+      this.chatWindow.style.top = 'auto';
+      this.chatWindow.style.left = 'auto';
+      this.chatWindow.style.bottom = '20px';
+      this.chatWindow.style.right = '20px';
+      maximizeBtn.textContent = '□';
+      maximizeBtn.title = 'Maximize';
+      this.isMaximized = false;
     } else {
-      createHelloMessage('Hello, Lichess! Please set your OpenAI API Key in the extension settings.');
+      // Maximize to full screen
+      this.chatWindow.style.width = '80vw';
+      this.chatWindow.style.height = '80vh';
+      this.chatWindow.style.top = '10vh';
+      this.chatWindow.style.left = '10vw';
+      this.chatWindow.style.bottom = 'auto';
+      this.chatWindow.style.right = 'auto';
+      maximizeBtn.textContent = '⧉';
+      maximizeBtn.title = 'Restore';
+      this.isMaximized = true;
     }
-  });
+  }
+
+  toggleMinimize() {
+    const messagesContainer = this.chatWindow.querySelector('#messages-container');
+    const inputArea = this.chatWindow.querySelector('div:last-child');
+    const minimizeBtn = this.chatWindow.querySelector('#minimize-btn');
+    
+    if (this.isMinimized) {
+      // Restore from minimized
+      if (this.isMaximized) {
+        this.chatWindow.style.height = '80vh';
+      } else {
+        this.chatWindow.style.height = this.originalSize.height;
+      }
+      messagesContainer.style.display = 'block';
+      inputArea.style.display = 'flex';
+      minimizeBtn.textContent = '−';
+      minimizeBtn.title = 'Minimize';
+      
+      // Reset header appearance
+      const header = this.chatWindow.querySelector('div:first-child');
+      header.style.cursor = 'move';
+      header.style.opacity = '1';
+      header.onclick = null;
+      
+      this.isMinimized = false;
+    } else {
+      // Minimize - keep header visible with buttons
+      this.chatWindow.style.height = '50px';
+      messagesContainer.style.display = 'none';
+      inputArea.style.display = 'none';
+      minimizeBtn.textContent = '□';
+      minimizeBtn.title = 'Restore';
+      
+      // Add visual indicator when minimized
+      const header = this.chatWindow.querySelector('div:first-child');
+      header.style.cursor = 'pointer';
+      header.style.opacity = '0.9';
+      
+      // Make entire header clickable to restore
+      header.onclick = (e) => {
+        if (e.target === header || e.target.tagName === 'SPAN') {
+          this.toggleMinimize();
+        }
+      };
+      
+      this.isMinimized = true;
+    }
+  }
+
+  closeChatWindow() {
+    this.chatWindow.remove();
+  }
+
+  clearConversation() {
+    this.conversationHistory = [];
+    const messagesContainer = this.chatWindow.querySelector('#messages-container');
+    messagesContainer.innerHTML = '';
+    this.addMessage('system', 'Welcome! I\'m your chess tutor. I can help analyze this game and answer questions about chess strategy and tactics.');
+  }
+
+
+  extractMoves() {
+    const moves = [];
+
+    // Try multiple selectors for move extraction
+    const moveSelectors = [
+      '.moves move',
+      '.moves .move',
+      '.game__moves move',
+      '.game__moves .move',
+      '.analyse__moves move',
+      '.analyse__moves .move',
+      '.rmoves move',
+      '.rmoves .move',
+      '.tview2 move',
+      '.tview2 .move'
+    ];
+
+    let moveElements = [];
+    for (const selector of moveSelectors) {
+      moveElements = document.querySelectorAll(selector);
+      if (moveElements.length > 0) break;
+    }
+
+    moveElements.forEach((moveEl, index) => {
+      const moveText = moveEl.textContent.trim();
+      if (moveText && !moveText.includes('.') && moveText.length > 1) { // Filter out move numbers and empty moves
+        moves.push({
+          moveNumber: Math.floor(index / 2) + 1,
+          color: index % 2 === 0 ? 'white' : 'black',
+          move: moveText,
+          element: moveEl
+        });
+      }
+    });
+
+    // Alternative extraction method for different lichess layouts
+    if (moves.length === 0) {
+      const moveContainers = ['.moves', '.game__moves', '.analyse__moves', '.rmoves', '.tview2'];
+
+      for (const container of moveContainers) {
+        const moveList = document.querySelector(container);
+        if (moveList) {
+          // More comprehensive regex for chess moves
+          const moveTexts = moveList.textContent.match(/[a-h][1-8]|[KQRBN][a-h]?[1-8]?x?[a-h][1-8](?:=?[QRBN])?[+#]?|O-O-O|O-O/g);
+          if (moveTexts) {
+            moveTexts.forEach((move, index) => {
+              moves.push({
+                moveNumber: Math.floor(index / 2) + 1,
+                color: index % 2 === 0 ? 'white' : 'black',
+                move: move
+              });
+            });
+            break;
+          }
+        }
+      }
+    }
+
+    return moves;
+  }
+
+  extractStockfishEvaluations() {
+    const evaluations = [];
+
+    // Look for computer analysis elements
+    const evalElements = document.querySelectorAll('.eval, .computer-analysis .eval, [data-eval]');
+
+    evalElements.forEach((evalEl, index) => {
+      const evalText = evalEl.textContent || evalEl.getAttribute('data-eval');
+      if (evalText) {
+        evaluations.push({
+          moveIndex: index,
+          evaluation: evalText,
+          type: evalText.includes('M') ? 'mate' : 'centipawn'
+        });
+      }
+    });
+
+    return evaluations;
+  }
+
+  extractFenPosition() {
+    // Use the provided selector for FEN position
+    const fenInput = document.querySelector('.copy-me.analyse__underboard__fen input');
+
+    if (fenInput && fenInput.value) {
+      return fenInput.value;
+    }
+
+    // Alternative selectors for FEN position
+    const alternativeSelectors = [
+      'input[placeholder*="FEN"]',
+      'input[value*="rnbqkbnr"]',
+      '.fen input',
+      '.fen-pgn input',
+      '.analyse__underboard input'
+    ];
+
+    for (const selector of alternativeSelectors) {
+      const input = document.querySelector(selector);
+      if (input && input.value && input.value.includes('/')) {
+        return input.value;
+      }
+    }
+
+    return null;
+  }
+
+  extractPGN() {
+    // Look for PGN data in various locations
+    const pgnSelectors = [
+      '#main-wrap > main > div.analyse__underboard > div.analyse__underboard__panels > div.fen-pgn.active > div:nth-child(2) > div > textarea',
+      '.pgn textarea',
+      '.fen-pgn textarea',
+      'textarea[placeholder*="PGN"]'
+    ];
+
+    for (const selector of pgnSelectors) {
+      const pgnElement = document.querySelector(selector);
+      if (pgnElement && pgnElement.value) {
+        return pgnElement.value;
+      }
+    }
+
+    return null;
+  }
+
+  getCurrentMoveContext() {
+    // Try to detect the currently selected/highlighted move
+    const context = {
+      moveNumber: null,
+      move: null,
+      fen: null,
+      ply: null
+    };
+
+    // Look for highlighted/selected move elements
+    const selectedMoveSelectors = [
+      '.moves .active',
+      '.moves .selected', 
+      '.game__moves .active',
+      '.game__moves .selected',
+      '.analyse__moves .active',
+      '.analyse__moves .selected',
+      '.rmoves .active',
+      '.rmoves .selected',
+      '.tview2 .active',
+      '.tview2 .selected'
+    ];
+
+    for (const selector of selectedMoveSelectors) {
+      const selectedMove = document.querySelector(selector);
+      if (selectedMove) {
+        const moveText = selectedMove.textContent.trim();
+        if (moveText && !moveText.includes('.')) {
+          // Try to get move number from previous elements or context
+          const moveIndex = Array.from(selectedMove.parentElement.children).indexOf(selectedMove);
+          context.moveNumber = Math.floor(moveIndex / 2) + 1;
+          context.move = moveText;
+          context.ply = moveIndex + 1;
+          break;
+        }
+      }
+    }
+
+    // Get current FEN position for additional context
+    context.fen = this.extractFenPosition();
+
+    // If no specific move is selected, try to determine from URL or other indicators
+    if (!context.move) {
+      const urlMatch = window.location.href.match(/\/(\d+)(?:#.*)?$/);
+      if (urlMatch) {
+        context.ply = parseInt(urlMatch[1]);
+        context.moveNumber = Math.ceil(context.ply / 2);
+      }
+    }
+
+    return context;
+  }
+
+  addMessage(sender, content) {
+    const messagesContainer = this.chatWindow.querySelector('#messages-container');
+    const messageDiv = document.createElement('div');
+
+    messageDiv.style.cssText = `
+      margin-bottom: 12px;
+      padding: 12px;
+      border-radius: 8px;
+      border-left: 3px solid ${sender === 'user' ? '#1976d2' : sender === 'system' ? '#4CAF50' : '#ff6b6b'};
+      ${sender === 'user' ? 'background: #e8f4fd; margin-left: 20px;' : 'background: white; margin-right: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);'}
+      line-height: 1.6;
+      color: #333;
+    `;
+
+    const senderSpan = document.createElement('div');
+    senderSpan.style.cssText = `
+      font-weight: bold;
+      margin-bottom: 6px;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: ${sender === 'user' ? '#1976d2' : sender === 'system' ? '#4CAF50' : '#ff6b6b'};
+    `;
+    senderSpan.textContent = sender === 'user' ? 'You' : sender === 'system' ? 'Tutor' : 'Assistant';
+
+    const contentDiv = document.createElement('div');
+    contentDiv.style.cssText = `
+      color: #333;
+      font-weight: 500;
+    `;
+
+    // Parse markdown-like formatting
+    if (sender === 'assistant' || sender === 'system') {
+      contentDiv.innerHTML = this.parseMarkdown(content);
+    } else {
+      contentDiv.textContent = content;
+    }
+
+    messageDiv.appendChild(senderSpan);
+    messageDiv.appendChild(contentDiv);
+    messagesContainer.appendChild(messageDiv);
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+  }
+
+  parseMarkdown(text) {
+    // Simple markdown parser for basic formatting
+    let html = text;
+    
+    // Bold text **text**
+    html = html.replace(/\*\*(.*?)\*\*/g, '<strong style="color: #2c3e50;">$1</strong>');
+    
+    // Italic text *text*
+    html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
+    
+    // Headers ### text
+    html = html.replace(/^### (.*?)$/gm, '<h3 style="color: #2c3e50; margin: 12px 0 8px 0; font-size: 16px;">$1</h3>');
+    html = html.replace(/^## (.*?)$/gm, '<h2 style="color: #2c3e50; margin: 14px 0 8px 0; font-size: 18px;">$1</h2>');
+    html = html.replace(/^# (.*?)$/gm, '<h1 style="color: #2c3e50; margin: 16px 0 8px 0; font-size: 20px;">$1</h1>');
+    
+    // Code blocks ```code```
+    html = html.replace(/```(.*?)```/gs, '<code style="background: #f4f4f4; padding: 8px; border-radius: 4px; display: block; margin: 8px 0; font-family: monospace; color: #d63384;">$1</code>');
+    
+    // Inline code `code`
+    html = html.replace(/`(.*?)`/g, '<code style="background: #f4f4f4; padding: 2px 4px; border-radius: 3px; font-family: monospace; color: #d63384;">$1</code>');
+    
+    // Lists - * item
+    html = html.replace(/^- (.*?)$/gm, '<div style="margin: 4px 0; padding-left: 16px;">• $1</div>');
+    html = html.replace(/^\* (.*?)$/gm, '<div style="margin: 4px 0; padding-left: 16px;">• $1</div>');
+    
+    // Numbered lists
+    html = html.replace(/^(\d+)\. (.*?)$/gm, '<div style="margin: 4px 0; padding-left: 16px;">$1. $2</div>');
+    
+    // Line breaks
+    html = html.replace(/\n\n/g, '<br><br>');
+    html = html.replace(/\n/g, '<br>');
+    
+    // Chess notation highlighting
+    html = html.replace(/\b([KQRBN]?[a-h]?[1-8]?x?[a-h][1-8](?:=?[QRBN])?[+#]?|O-O-O|O-O)\b/g, '<span style="background: #e8f5e8; padding: 1px 3px; border-radius: 3px; font-weight: bold; color: #2e7d32;">$1</span>');
+    
+    return html;
+  }
+
+  async sendMessage(message) {
+    if (!message.trim()) return;
+
+    // Clear input
+    const messageInput = this.chatWindow.querySelector('input');
+    messageInput.value = '';
+
+    // Get current move context
+    const moveContext = this.getCurrentMoveContext();
+
+    // Append move context to user message
+    let enhancedMessage = message;
+    if (moveContext.fen) {
+      enhancedMessage += `\n\n[Current position FEN: ${moveContext.fen}]`;
+    }
+    if (moveContext.move && moveContext.moveNumber) {
+      enhancedMessage += `\n[Currently viewing move ${moveContext.moveNumber}: ${moveContext.move}]`;
+    } else if (moveContext.ply) {
+      enhancedMessage += `\n[Currently viewing ply ${moveContext.ply}]`;
+    } else if (moveContext.fen) {
+      enhancedMessage += `\n[Viewing current board position]`;
+    }
+
+    // Add user message (display original message to user)
+    this.addMessage('user', message);
+
+    // Show typing indicator
+    this.addMessage('system', 'Thinking...');
+
+    try {
+      // Send enhanced message with context to OpenAI
+      const response = await this.callOpenAI(enhancedMessage);
+
+      // Remove typing indicator
+      const messages = this.chatWindow.querySelectorAll('#messages-container > div');
+      messages[messages.length - 1].remove();
+
+      // Add AI response
+      this.addMessage('assistant', response);
+
+    } catch (error) {
+      console.error('Error calling OpenAI:', error);
+
+      // Remove typing indicator
+      const messages = this.chatWindow.querySelectorAll('#messages-container > div');
+      messages[messages.length - 1].remove();
+
+      this.addMessage('system', 'Sorry, I encountered an error. Please check your API key and try again.');
+    }
+  }
+
+  async callOpenAI(userMessage) {
+    const systemMessage = this.buildSystemMessage();
+
+    // Add current user message to conversation history
+    this.conversationHistory.push({ role: 'user', content: userMessage });
+
+    // Build messages array with system message and conversation history
+    const messages = [
+      { role: 'system', content: systemMessage },
+      ...this.conversationHistory
+    ];
+
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${this.apiKey}`
+      },
+      body: JSON.stringify({
+        model: 'gpt-4',
+        messages: messages,
+        max_tokens: 500,
+        temperature: 0.7
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`OpenAI API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const assistantResponse = data.choices[0].message.content;
+
+    // Add assistant response to conversation history
+    this.conversationHistory.push({ role: 'assistant', content: assistantResponse });
+
+    // Keep conversation history manageable (last 10 exchanges)
+    if (this.conversationHistory.length > 20) {
+      this.conversationHistory = this.conversationHistory.slice(-20);
+    }
+
+    return assistantResponse;
+  }
+
+  buildSystemMessage() {
+    let systemMessage = `You are a helpful chess tutor assisting a student in analyzing a chess game. You should provide educational insights about chess strategy, tactics, and gameplay.`;
+
+    // Extract PGN data for the complete game context
+    const currentPgn = this.extractPGN();
+    if (currentPgn) {
+      systemMessage += `\n\nGame PGN:\n${currentPgn}\n`;
+    } else {
+      // Fallback to move list if PGN is not available
+      const currentMoves = this.extractMoves();
+      if (currentMoves.length > 0) {
+        systemMessage += `\n\nGame moves:\n`;
+        currentMoves.forEach((move, index) => {
+          systemMessage += `${move.moveNumber}${move.color === 'white' ? '.' : '...'} ${move.move}\n`;
+        });
+      }
+    }
+
+    // Include Stockfish evaluations if available
+    const currentEvaluations = this.extractStockfishEvaluations();
+    if (currentEvaluations.length > 0) {
+      systemMessage += `\n\nStockfish evaluations:\n`;
+      currentEvaluations.forEach((evaluation, index) => {
+        systemMessage += `Move ${evaluation.moveIndex + 1}: ${evaluation.evaluation}\n`;
+      });
+    }
+
+    systemMessage += `\n\nThe user's message will include context about which specific move or position they are currently viewing. Please provide helpful, educational responses about chess concepts, the current position, tactics, and strategy. Keep responses concise but informative.`;
+
+    return systemMessage;
+  }
 }
 
-// Wait for the page to fully load
-window.addEventListener('load', function() {
-  checkApiKey();
-});
+// Initialize the chess analyzer when the page loads
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => {
+    new ChessAnalyzer();
+  });
+} else {
+  new ChessAnalyzer();
+}
