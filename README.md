@@ -50,3 +50,7 @@ cd checkmate
 - **Maximize**: Click the "□" button to expand to full screen
 - **Clear**: Click the "🗑️" button to clear conversation history
 - **Close**: Click the "×" button to close the chat window
+
+# License
+
+Apache 2.0
