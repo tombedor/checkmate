@@ -34,6 +34,7 @@ cd checkmate
 2. Enable "Developer mode" (toggle in top right)
 3. Click "Load unpacked"
 4. Select the `checkmate` folder containing the extension files
+5. After any code changes, reload the extension by navigating to `chrome://extensions/` and clicking the `reload` button.
 
 ### 3. Configure API Key
 1. Click the Checkmate extension icon in your browser toolbar
