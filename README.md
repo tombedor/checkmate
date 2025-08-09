@@ -1,6 +1,6 @@
 # Checkmate - AI Chess Tutor Extension
 
-A Chrome extension that provides real-time chess analysis and educational insights for lichess.org games using OpenAI's GPT-4.
+A browser extension for Chrome and Firefox that provides real-time chess analysis and educational insights for lichess.org games using OpenAI's GPT-4.
 
 ## Features
 
@@ -12,7 +12,7 @@ A Chrome extension that provides real-time chess analysis and educational insigh
 
 ## Prerequisites
 
-- Google Chrome browser
+- Chrome or Firefox browser
 - OpenAI API key (GPT-4 access required)
 - lichess.org account (for playing/analyzing games)
 
@@ -25,11 +25,26 @@ git clone <repository-url>
 cd checkmate
 ```
 
-### 2. Load Extension in Chrome
+### 2. Install in Your Browser
+
+#### For Chrome:
 1. Open Chrome and navigate to `chrome://extensions/`
 2. Enable "Developer mode" (toggle in top right)
 3. Click "Load unpacked"
 4. Select the `checkmate` folder containing the extension files
+
+#### For Firefox:
+1. Copy `manifest-firefox.json` to `manifest.json` in the `checkmate` folder:
+   ```bash
+   cd checkmate
+   cp manifest-firefox.json manifest.json
+   ```
+2. Open Firefox and navigate to `about:debugging`
+3. Click "This Firefox" in the sidebar
+4. Click "Load Temporary Add-on"
+5. Select the `manifest.json` file in the `checkmate` folder
+
+**Note:** Firefox temporary add-ons are removed when you restart the browser. For permanent installation, you'll need to package and sign the extension through Mozilla's Add-on Developer Hub.
 
 ### 3. Configure API Key
 1. Click the Checkmate extension icon in your browser toolbar

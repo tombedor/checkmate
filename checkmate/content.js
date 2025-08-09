@@ -15,7 +15,8 @@ class ChessAnalyzer {
 
   async init() {
     // Get API key from storage
-    chrome.storage.sync.get(['apiKey'], (result) => {
+    try {
+      const result = await browserAPI.storage.sync.get(['apiKey']);
       this.apiKey = result.apiKey;
       if (this.apiKey) {
         this.createChatWindow();
@@ -27,7 +28,10 @@ class ChessAnalyzer {
       } else {
         this.showSetupMessage();
       }
-    });
+    } catch (error) {
+      console.error('Failed to get API key:', error);
+      this.showSetupMessage();
+    }
   }
 
   showSetupMessage() {
