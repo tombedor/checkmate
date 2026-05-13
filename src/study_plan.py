@@ -226,7 +226,7 @@ def get_challenge_queue() -> list[dict]:
                challenges.correct_move_san, challenges.correct_move_uci,
                challenges.explanation, challenges.phase, challenges.eval_delta_cp,
                challenges.priority, challenges.times_seen, challenges.times_correct,
-               challenges.next_review, g.user_color
+               challenges.next_review, g.user_color, g.opening, g.eco
         FROM challenges
         JOIN games g ON g.id = challenges.game_id
         ORDER BY priority DESC, next_review ASC NULLS FIRST
