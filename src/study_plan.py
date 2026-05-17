@@ -238,8 +238,11 @@ def generate_challenges():
             user_move_san = moment.get('user_move_san', '')
             better_move_san = moment.get('better_move_san', '')
             concept = moment.get('concept', 'general')
+            concept_detail = moment.get('concept_detail', concept)
             explanation = moment.get('explanation', '')
             causal_connection = moment.get('causal_connection', '')
+            causal_root_move = moment.get('causal_root_move')
+            next_step = moment.get('next_step', '')
 
             # Find matching position row
             conn = get_conn()
@@ -279,18 +282,29 @@ def generate_challenges():
             # Priority: phase multiplier × magnitude
             priority = _phase_priority(phase) * (abs(eval_delta) / 100.0)
 
+            # Generate a next_step if not provided by LLM
+            if not next_step:
+                if phase == 'opening':
+                    next_step = "Review your opening repertoire for this line."
+                elif phase == 'endgame':
+                    next_step = "Practice this endgame technique with a training tool."
+                else:
+                    next_step = "Look for similar tactical patterns in your games."
+
             conn = get_conn()
             cur3 = conn.cursor()
             cur3.execute("""
                 INSERT INTO challenges
-                (game_id, move_number, fen, context, concept, user_move_san,
-                 correct_move_san, correct_move_uci, explanation, phase,
-                 eval_delta_cp, priority)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+                (game_id, move_number, fen, context, concept, concept_detail,
+                 user_move_san, correct_move_san, correct_move_uci,
+                 explanation, next_step, phase, eval_delta_cp, priority,
+                 root_cause_move)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             """, (
-                game_id, move_number, fen, context, concept, user_move_san,
-                correct_move_san, best_move_uci, explanation, phase,
-                abs(eval_delta), priority,
+                game_id, move_number, fen, context, concept, concept_detail,
+                user_move_san, correct_move_san, best_move_uci,
+                explanation, next_step, phase, abs(eval_delta), priority,
+                causal_root_move,
             ))
             conn.commit()
             conn.close()
@@ -302,20 +316,23 @@ def generate_challenges():
 
 
 def get_challenge_queue() -> list[dict]:
-    """Return challenges ordered by priority desc, then next_review, as list of dicts."""
+    """Return challenges ordered by priority desc, then date desc, then next_review, as list of dicts."""
     conn = get_conn()
     cur = conn.cursor()
     rows = cur.execute("""
         SELECT challenges.id, challenges.game_id, challenges.move_number, challenges.fen,
-               challenges.context, challenges.concept, challenges.user_move_san,
+               challenges.context, challenges.concept, challenges.concept_detail,
+               challenges.user_move_san,
                challenges.correct_move_san, challenges.correct_move_uci,
-               challenges.explanation, challenges.phase, challenges.eval_delta_cp,
+               challenges.explanation, challenges.next_step, challenges.phase,
+               challenges.eval_delta_cp,
                challenges.priority, challenges.times_seen, challenges.times_correct,
-               challenges.next_review, g.user_color, g.opening, g.eco, g.pgn,
-               g.white, g.black
+               challenges.next_review, challenges.root_cause_move,
+               g.user_color, g.opening, g.eco, g.pgn,
+               g.white, g.black, g.date
         FROM challenges
         JOIN games g ON g.id = challenges.game_id
-        ORDER BY priority DESC, next_review ASC NULLS FIRST
+        ORDER BY priority DESC, g.date DESC, next_review ASC NULLS FIRST
     """).fetchall()
     conn.close()
     return [dict(r) for r in rows]

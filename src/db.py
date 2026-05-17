@@ -71,19 +71,35 @@ def init_db():
             fen TEXT,
             context TEXT,
             concept TEXT,
+            concept_detail TEXT,
             user_move_san TEXT,
             correct_move_san TEXT,
             correct_move_uci TEXT,
             explanation TEXT,
+            next_step TEXT,
             phase TEXT,
             eval_delta_cp INTEGER,
             priority REAL DEFAULT 1.0,
             times_seen INTEGER DEFAULT 0,
             times_correct INTEGER DEFAULT 0,
             next_review TEXT,
+            root_cause_move INTEGER,
             FOREIGN KEY (game_id) REFERENCES games(id)
         );
     """)
+    # Add columns for existing databases (safe to run multiple times)
+    try:
+        cur.execute("ALTER TABLE challenges ADD COLUMN concept_detail TEXT")
+    except Exception:
+        pass
+    try:
+        cur.execute("ALTER TABLE challenges ADD COLUMN next_step TEXT")
+    except Exception:
+        pass
+    try:
+        cur.execute("ALTER TABLE challenges ADD COLUMN root_cause_move INTEGER")
+    except Exception:
+        pass
     conn.commit()
     conn.close()
 

@@ -523,6 +523,19 @@ function loadChallengeById(challengeId, replaceUrl = false) {
   updateChallengeUrl(c.id, replaceUrl);
 }
 
+function highlightCorrectMove(c) {
+  if (!c.correct_move_uci || c.correct_move_uci.length < 4) return;
+  const from = c.correct_move_uci.slice(0, 2);
+  const to = c.correct_move_uci.slice(2, 4);
+  const squares = document.querySelectorAll('[data-square]');
+  squares.forEach((el) => {
+    const sq = el.dataset.square;
+    if (sq === from || sq === to) {
+      el.classList.add('correct-move-highlight');
+    }
+  });
+}
+
 function handleSubmit() {
   if (state.submitted) return;
   state.submitted = true;
@@ -569,6 +582,15 @@ function handleSubmit() {
     ? `Your attempt: <span>${attemptDisplay || bestMoveDisplay}</span> · Original game move: <span>${c.user_move_san || '?'}</span> · Best move: <span>${bestMoveDisplay || correctUci}</span>`
     : `Your attempt: <span>${attemptDisplay || '?'}</span> · Original game move: <span>${c.user_move_san || '?'}</span> · Best move: <span>${bestMoveDisplay || correctUci || '?'}</span>`;
 
+  // Show next_step if available
+  const nextStepEl = document.getElementById('next-step-text');
+  if (c.next_step) {
+    nextStepEl.textContent = c.next_step;
+    nextStepEl.hidden = false;
+  } else {
+    nextStepEl.hidden = true;
+  }
+
   if (c.correct_move_uci && c.correct_move_uci.length >= 4) {
     state.game.move({
       from: c.correct_move_uci.slice(0, 2),
@@ -580,6 +602,7 @@ function handleSubmit() {
   state.pendingMove = null;
   clearSelection();
   renderBoard();
+  highlightCorrectMove(c);
   document.getElementById('btn-submit').disabled = true;
   document.getElementById('btn-next').hidden = false;
 }
