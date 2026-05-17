@@ -18,4 +18,14 @@ serve port="8000":
 browser-test:
   @python_bin=".venv/bin/python"; \
   if [[ ! -x "$python_bin" ]]; then python_bin="python3"; fi; \
-  "$python_bin" -m pytest tests/test_study_ui.py
+  "$python_bin" -m pytest tests
+
+browser-screenshot url="http://127.0.0.1:8000/" output_dir="output/test-artifacts":
+  @python_bin=".venv/bin/python"; \
+  if [[ ! -x "$python_bin" ]]; then python_bin="python3"; fi; \
+  "$python_bin" scripts/capture_study_screenshots.py --url {{url}} --output-dir {{output_dir}}
+
+inspect-puzzle puzzle_id:
+  @python_bin=".venv/bin/python"; \
+  if [[ ! -x "$python_bin" ]]; then python_bin="python3"; fi; \
+  "$python_bin" scripts/inspect_puzzle.py {{puzzle_id}}

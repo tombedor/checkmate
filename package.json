@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "@mliebelt/pgn-viewer": "^1.6.11"
+  }
+}
