@@ -21,12 +21,19 @@
   <div class="layout">
     <aside class="sidebar">
       <section class="panel">
-        <h2>Lichess Puzzle Focus</h2>
+        <div class="section-heading">
+          <h2>Lichess Puzzle Focus</h2>
+          <a class="all-themes-link" href="https://lichess.org/training/themes" target="_blank" rel="noreferrer">All themes</a>
+        </div>
         <div id="focus-list" class="focus-list"></div>
       </section>
 
       <section class="panel">
-        <h2>Weakness Summary</h2>
+        <div class="section-heading">
+          <h2>Weakness Summary</h2>
+          <button type="button" class="clear-filter-btn" id="clear-concept-filter" hidden>Clear</button>
+        </div>
+        <p class="section-hint">Click a weakness to filter the challenge queue.</p>
         <div id="concept-list"></div>
       </section>
     </aside>
@@ -39,7 +46,13 @@
 
       <section id="challenge-shell">
         <div class="challenge-header">
-          <span class="concept-badge" id="concept-badge">concept</span>
+          <div class="challenge-heading-left">
+            <span class="concept-badge" id="concept-badge">concept</span>
+            <div class="actual-move-banner">
+              <span class="actual-move-label">In the game you played</span>
+              <strong id="actual-move-banner">--</strong>
+            </div>
+          </div>
           <span class="progress-text" id="progress-text">1 / 1</span>
         </div>
 
@@ -50,10 +63,27 @@
         <section class="panel context-box">
           <div class="context-topline">
             <h3>Position Context</h3>
-            <a id="game-link" class="game-link" href="#" target="_blank" rel="noreferrer">Open Game</a>
+            <div class="context-links">
+              <a id="challenge-link" class="game-link" href="#">Puzzle #--</a>
+              <a id="game-link" class="game-link" href="#" target="_blank" rel="noreferrer">Open Game</a>
+            </div>
           </div>
+          <div class="move-meta">
+            <span class="move-pill move-pill-actual">Game move <strong id="actual-move">--</strong></span>
+            <span class="move-pill move-pill-opening" id="opening-pill">Opening</span>
+          </div>
+          <p class="player-clarifier" id="player-clarifier"></p>
+          <p class="move-clarifier" id="best-move-clarifier" hidden></p>
           <p id="context-text"></p>
           <p class="instruction" id="instruction-text">Find the best move.</p>
+        </section>
+
+        <section class="panel replay-box">
+          <div class="context-topline">
+            <h3>Actual Game Replay</h3>
+            <span class="replay-status">Browse the full game move-by-move.</span>
+          </div>
+          <div id="replay-viewer" class="replay-viewer" aria-label="Actual game replay viewer"></div>
         </section>
 
         <div class="btn-row">
@@ -71,6 +101,7 @@
   </div>
 
   <script src="https://unpkg.com/chess.js@0.10.3/chess.js"></script>
+  <script src="vendor/pgnv.js" type="text/javascript"></script>
   <script type="module" src="app.js"></script>
 </body>
 </html>

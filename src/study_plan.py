@@ -6,21 +6,55 @@ from src.db import get_conn
 
 
 LICHESS_THEME_RULES = [
+    ("Advanced pawn", ("advanced pawn", "passed pawn", "deep pawn", "promote soon")),
+    ("Attacking f2 or f7", ("f2", "f7", "fried liver")),
+    ("Capture the defender", ("remove the defender", "removing the defender", "capture the defender")),
     ("Checkmate", ("checkmate", "mate", "mating net", "mate threat")),
+    ("Mate in 1", ("mate in 1", "mate in one", "one-move mate")),
+    ("Mate in 2", ("mate in 2", "mate in two")),
+    ("Mate in 3", ("mate in 3", "mate in three")),
+    ("Mate in 4", ("mate in 4", "mate in four")),
+    ("Mate in 5 or more", ("mate in 5", "mate in five", "long mating sequence")),
+    ("Back rank mate", ("back rank mate", "back-rank mate", "back rank")),
+    ("Smothered mate", ("smothered mate",)),
+    ("Anastasia's mate", ("anastasia", "anastasia's mate")),
+    ("Arabian mate", ("arabian mate",)),
+    ("Boden's mate", ("boden", "boden's mate")),
+    ("Double bishop mate", ("double bishop mate",)),
+    ("Dovetail mate", ("dovetail mate",)),
+    ("Epaulette mate", ("epaulette mate",)),
+    ("Hook mate", ("hook mate",)),
+    ("Kill box mate", ("kill box mate",)),
+    ("Morphy's mate", ("morphy", "morphy's mate")),
+    ("Opera mate", ("opera mate",)),
+    ("Pillsbury's mate", ("pillsbury", "pillsbury's mate")),
+    ("Smothered mate", ("smothered mate",)),
+    ("Triangle mate", ("triangle mate",)),
+    ("Vuković mate", ("vuković", "vukovic mate", "vuković mate")),
     ("Kingside attack", ("kingside attack", "exposed king", "king attack", "attack the king")),
+    ("Queenside attack", ("queenside attack",)),
     ("Fork", ("fork", "double attack")),
     ("Pin", ("pin", "pinned")),
     ("Skewer", ("skewer",)),
     ("Discovered attack", ("discovered attack", "discovered check")),
+    ("Discovered check", ("discovered check",)),
+    ("Double check", ("double check",)),
     ("Hanging piece", ("hanging", "undefended", "loose piece", "free to capture")),
-    ("Capture the defender", ("remove the defender", "removing the defender", "capture the defender")),
+    ("Trapped piece", ("trapped piece", "unable to escape", "no escape squares")),
     ("Deflection", ("deflection", "distract", "distracting")),
     ("Attraction", ("attraction", "lure", "drag the king", "dragging")),
     ("Interference", ("interference", "interpose", "blocking line")),
     ("Clearance", ("clearance", "clear a square", "clear the file", "clear the diagonal")),
     ("Sacrifice", ("sacrifice", "give up material")),
     ("Defensive move", ("defensive", "defense", "prophyl", "only move", "avoid losing")),
+    ("Intermezzo", ("intermezzo", "zwischenzug", "in between move")),
+    ("Quiet move", ("quiet move",)),
+    ("X-Ray attack", ("x-ray", "x ray")),
+    ("Zugzwang", ("zugzwang",)),
+    ("Castling", ("castle", "castling")),
+    ("En passant rights", ("en passant",)),
     ("Promotion", ("promotion", "promote", "passed pawn", "underpromotion")),
+    ("Underpromotion", ("underpromotion", "promote to a knight", "promote to bishop", "promote to rook")),
 ]
 
 
@@ -32,6 +66,57 @@ def _uci_to_san(fen: str, uci: str) -> str:
         return board.san(move)
     except Exception:
         return uci
+
+
+def _piece_name(piece_type: int | None) -> str | None:
+    if piece_type is None:
+        return None
+    return {
+        chess.PAWN: "pawn",
+        chess.KNIGHT: "knight",
+        chess.BISHOP: "bishop",
+        chess.ROOK: "rook",
+        chess.QUEEN: "queen",
+        chess.KING: "king",
+    }.get(piece_type)
+
+
+def describe_uci_move(fen: str, uci: str) -> dict:
+    """Return verified move metadata for a UCI move in a FEN position."""
+    details = {
+        "uci": uci,
+        "san": uci or "?",
+        "from_square": None,
+        "to_square": None,
+        "piece": None,
+        "is_legal": False,
+        "display": uci or "?",
+    }
+    if not fen or not uci:
+        return details
+
+    try:
+        board = chess.Board(fen)
+        move = chess.Move.from_uci(uci)
+    except Exception:
+        return details
+
+    details["from_square"] = chess.square_name(move.from_square)
+    details["to_square"] = chess.square_name(move.to_square)
+    piece = board.piece_at(move.from_square)
+    details["piece"] = _piece_name(piece.piece_type if piece else None)
+
+    if move not in board.legal_moves:
+        return details
+
+    san = board.san(move)
+    details["san"] = san
+    details["is_legal"] = True
+    if details["piece"] and details["from_square"] and details["to_square"]:
+        details["display"] = f"{san} - {details['piece']} {details['from_square']}→{details['to_square']}"
+    else:
+        details["display"] = san
+    return details
 
 
 def _phase_priority(phase: str) -> float:
@@ -226,7 +311,8 @@ def get_challenge_queue() -> list[dict]:
                challenges.correct_move_san, challenges.correct_move_uci,
                challenges.explanation, challenges.phase, challenges.eval_delta_cp,
                challenges.priority, challenges.times_seen, challenges.times_correct,
-               challenges.next_review, g.user_color, g.opening, g.eco
+               challenges.next_review, g.user_color, g.opening, g.eco, g.pgn,
+               g.white, g.black
         FROM challenges
         JOIN games g ON g.id = challenges.game_id
         ORDER BY priority DESC, next_review ASC NULLS FIRST
